@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+.gradle/
+build/
+bin/
+*.class
+*.pyc
+__pycache__/
+.idea/
+.vscode/
+.codex/
+.DS_Store
+Thumbs.db
+*.log
