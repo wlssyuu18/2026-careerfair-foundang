@@ -50,12 +50,13 @@ final class BrowserSession implements AutoCloseable {
     }
     void navigate(String url) { Rules.site(url); if (!Rules.readUrl(url)) throw new IllegalArgumentException("읽기 가능한 페이지로만 이동할 수 있어요."); blocked = ""; page.navigate(url, new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED).setTimeout(30000)); }
     String blockedReason() { return blocked; }
+    String takeBlockedReason() { String reason = blocked; blocked = ""; return reason; }
     boolean mutationSent() { return mutationSent; }
     boolean isOpen() { return !page.isClosed(); }
     void pumpEvents() { if (isOpen()) page.waitForTimeout(50); }
     Snapshot observe() {
         Rules.site(page.url());
-        @SuppressWarnings("unchecked") Map<String, Object> data = (Map<String, Object>) page.evaluate("""
+        String encoded = (String) page.evaluate("""
             () => {
               document.querySelectorAll('[data-hckt-id]').forEach(e => e.removeAttribute('data-hckt-id'));
               const root = document.querySelector('#searchList') || document.querySelector('main, #contents, #container, #content') || document.body;
@@ -64,16 +65,53 @@ final class BrowserSession implements AutoCloseable {
                 .filter(e => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' && e.type !== 'hidden' && !e.matches('.mic,[id^="mic_"]')).slice(0,100)
                 .map((e,i) => { const id = String(i); e.setAttribute('data-hckt-id',id);
                   const label = e.getAttribute('aria-label') || e.getAttribute('title') || e.placeholder || e.innerText || e.labels?.[0]?.innerText || '';
-                  return {id,tag:e.tagName.toLowerCase(),type:e.type || '',label:label.replace(/\\s+/g,' ').trim().slice(0,90),href:e.dataset.linkurl ? new URL(e.dataset.linkurl,location.href).href : e.tagName==='A' ? e.href : '',
+                  return {id,tag:e.tagName.toLowerCase(),type:e.type || '',value: ['date','time'].includes(e.type) || e.tagName==='SELECT' ? e.value : '',label:label.replace(/\\s+/g,' ').trim().slice(0,90),href:e.dataset.linkurl ? new URL(e.dataset.linkurl,location.href).href : e.tagName==='A' ? e.href : '',
                     options:e.tagName==='SELECT' ? [...e.options].map(o=>({value:o.value,label:o.text})).slice(0,60) : []};
                 });
-              return {text:root.innerText.slice(0,5000),elements};
+              return JSON.stringify({text:root.innerText.slice(0,5000),elements});
             }
             """);
+        if (encoded == null || encoded.equals("null")) throw new PlaywrightException("사이트의 화면 관찰 데이터를 읽을 수 없어요.");
+        @SuppressWarnings("unchecked") Map<String,Object> data = new tools.jackson.databind.ObjectMapper().readValue(encoded, Map.class);
         @SuppressWarnings("unchecked") List<Map<String, Object>> elements = (List<Map<String, Object>>) data.get("elements");
         return new Snapshot(page.url(), Rules.redact((String) data.get("text")), elements);
     }
     String rawText() { return page.locator("body").innerText(); }
+    String bookingRequirement() {
+        if (page.locator("input[type=password]:visible, iframe[src*='captcha']:visible, [class*='captcha']:visible").count() > 0) return "시설 사이트에서 로그인 또는 본인 인증 후 예약할 수 있어요.";
+        if (page.locator("input[name='smsinstr']:visible").count() > 0 || rawText().matches("(?s).*(?:인증번호 발송|휴대폰 인증|본인인증|본인 인증).*")) return "시설 사이트에서 휴대폰 인증 후 예약할 수 있어요.";
+        if (page.locator("input[type=tel]:visible, input[type=email]:visible").count() > 0 || rawText().matches("(?s).*(?:개인정보 수집|개인정보.*동의|예약자 정보).*")) return "시설 사이트에서 예약자 정보 입력·동의 후 예약할 수 있어요.";
+        return "";
+    }
+    Task.Availability hwaseongAvailability(Task.Conditions c, String room) {
+        var date = java.time.LocalDate.parse(c.date());
+        navigate("https://youthjob.hscity.go.kr/place/place_form.jsp?year=" + date.getYear() + "&month=" + date.getMonthValue() + "&chkday=" + date.getDayOfMonth());
+        String raw = rawText();
+        if (!raw.contains(c.date())) return TaskService.availability(c, "UNKNOWN", "요청 날짜의 예약 화면을 확인하지 못했어요.");
+        var start = java.time.LocalTime.parse(c.start()); var end = java.time.LocalTime.parse(c.end());
+        var now = java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Seoul"));
+        if (date.getDayOfWeek().getValue() > 5 || start.isBefore(java.time.LocalTime.of(9,0)) || end.isAfter(java.time.LocalTime.of(18,0))
+            || start.isBefore(java.time.LocalTime.of(13,0)) && end.isAfter(java.time.LocalTime.NOON)
+            || java.time.Duration.between(start,end).toMinutes() > 240
+            || date.equals(now.toLocalDate()) && !start.isAfter(now.toLocalTime().plusHours(1)))
+            return TaskService.availability(c, "UNAVAILABLE", "평일 09~18시, 점심시간 12~13시 제외, 최대 4시간·이용 1시간 전 신청 조건과 맞지 않아요.");
+        Locator choice = page.getByLabel(room, new Page.GetByLabelOptions().setExact(true));
+        if (choice.count() != 1) return TaskService.availability(c, "UNKNOWN", "해당 공간의 예약 항목을 확인하지 못했어요.");
+        page.waitForResponse(r -> r.url().contains("/place/place_time.jsp") && r.request().method().equals("POST"), () -> choice.check());
+        page.locator("input[name=time1]").first().waitFor(new Locator.WaitForOptions().setTimeout(5000));
+        @SuppressWarnings("unchecked") List<Map<String,Object>> slots = (List<Map<String,Object>>) page.locator("input[name=time1]").evaluateAll("es => es.map(e => ({label:e.closest('label')?.innerText || '', disabled:e.disabled}))");
+        var covered = start;
+        var time = java.util.regex.Pattern.compile("(\\d{2}:\\d{2})\\s*[~～–—-]\\s*(\\d{2}:\\d{2})");
+        var ranges = new ArrayList<java.time.LocalTime[]>();
+        for (var slot : slots) {
+            var match = time.matcher(Objects.toString(slot.get("label"), ""));
+            if (!Boolean.TRUE.equals(slot.get("disabled")) && match.find()) ranges.add(new java.time.LocalTime[]{java.time.LocalTime.parse(match.group(1)),java.time.LocalTime.parse(match.group(2))});
+        }
+        ranges.sort(Comparator.comparing(a -> a[0]));
+        for (var range : ranges) { if (range[0].isAfter(covered)) break; if (range[1].isAfter(covered)) covered = range[1]; }
+        if (ranges.isEmpty() && slots.isEmpty()) return TaskService.availability(c,"UNKNOWN","요청 날짜의 시간표를 확인하지 못했어요.");
+        return TaskService.availability(c, covered.isBefore(end) ? "UNAVAILABLE" : "AVAILABLE", covered.isBefore(end) ? "선택 가능한 시간 슬롯이 요청한 전체 이용 구간을 연속으로 포함하지 않아요." : "요청 날짜·공간의 시간표에서 전체 이용 구간을 확인했어요.");
+    }
     String currentUrl() { return page.url(); }
     private Locator element(String id) {
         if (id == null || !id.matches("[0-9]{1,3}")) throw new IllegalArgumentException("관찰한 요소 번호가 필요해요.");
@@ -106,7 +144,7 @@ final class BrowserSession implements AutoCloseable {
               const f=e.form || e.closest('form');
               if(!f || (e.hasAttribute('formmethod') ? e.formMethod : f.method).toLowerCase()!=='post'
                 || (e.hasAttribute('formenctype') ? e.formEnctype : f.enctype)!=='application/x-www-form-urlencoded'
-                || f.querySelector('input[type=password],input[type=file]')) return {};
+                || f.querySelector('input[type=password],input[type=file]') || !f.checkValidity()) return {};
               const data=new FormData(f); if(e.type==='submit' && e.name) data.append(e.name,e.value);
               return {action:e.hasAttribute('formaction') ? e.formAction : f.action,body:new URLSearchParams(data).toString()};
             }

@@ -13,14 +13,17 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 final class Rules {
-    static final Set<String> SITE_HOSTS = Set.of("www.eshare.go.kr", "eshare.go.kr", "yeyak.seoul.go.kr");
+    static final Set<String> SITE_HOSTS = Set.of("www.eshare.go.kr", "eshare.go.kr", "yeyak.seoul.go.kr",
+        "www.spacecloud.kr", "youthjob.hscity.go.kr", "youthjob.dongjak.go.kr",
+        "www.ulsannamgu.go.kr", "commonzfield.kr", "job.seoul.go.kr");
     static boolean searchPost(String url) {
         URI uri = site(url);
+        if (uri.getHost().equals("youthjob.hscity.go.kr")) return Set.of("/place/place_time.jsp", "/place/resnumchk.jsp").contains(uri.getPath());
         return uri.getHost().equals("yeyak.seoul.go.kr") ? Set.of(
             "/web/search/selectPageListTotalSearch.do", "/web/selectListLocaleSVCAjax.do",
             "/web/reservation/selectListReservPlaceAjax.do", "/web/reservation/selectListReservRegionAjax.do", "/web/reservation/selectListReservSvcAjax.do",
             "/web/reservation/selectListReservCalAjax.do", "/web/reservation/selectAllTimeCheckAjax.do", "/web/reservation/selectListReservCalUnitAjax.do").contains(uri.getPath())
-            : Set.of("/UserPortal/adv/resources/AdvEsSearchResourcesList.do", "/UserPortal/comm/zip/selectsigunguList.do",
+            : (uri.getHost().equals("www.eshare.go.kr") || uri.getHost().equals("eshare.go.kr")) && Set.of("/UserPortal/adv/resources/AdvEsSearchResourcesList.do", "/UserPortal/comm/zip/selectsigunguList.do",
                 "/UserPortal/Upm/searchUserPortalRsrcCls.do", "/UserPortal/Upm/searchNewUserPortalRsrcCls.do",
                 "/UserPortal/adv/resources/searchRsrcConvenInfo.do", "/UserPortal/adv/resources/searchRsrcMngtagncyInfo.do").contains(uri.getPath());
     }
@@ -65,7 +68,15 @@ final class Rules {
     }
     static List<String> missingEquipment(List<String> required, List<String> supplied, List<String> owned) {
         List<String> available = java.util.stream.Stream.concat(supplied.stream(), owned.stream()).map(s -> normalize(s).toLowerCase(java.util.Locale.ROOT)).toList();
-        return required.stream().filter(need -> available.stream().noneMatch(item -> item.contains(normalize(need).toLowerCase(java.util.Locale.ROOT)))).toList();
+        return required.stream().filter(need -> available.stream().noneMatch(item -> equipmentAliases(need).stream().anyMatch(alias -> item.contains(alias.toLowerCase(java.util.Locale.ROOT))))).toList();
+    }
+    static List<String> equipmentAliases(String item) {
+        return switch (normalize(item).toLowerCase(java.util.Locale.ROOT)) {
+            case "pc", "컴퓨터", "데스크톱", "데스크탑" -> List.of("PC", "컴퓨터", "데스크톱", "데스크탑");
+            case "인터넷", "wifi", "wi-fi", "와이파이", "유선 인터넷" -> List.of("인터넷", "wifi", "wi-fi", "와이파이");
+            case "웹캠", "webcam" -> List.of("웹캠", "webcam");
+            default -> List.of(normalize(item));
+        };
     }
     static String normalize(String text) { return text.replaceAll("\\s+", " ").trim(); }
     static String hash(String text) {

@@ -11,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/api")
 class TaskController {
+    @org.springframework.beans.factory.annotation.Autowired private DemoBookings demo;
     private final TaskService service;
     private final TaskStore store;
     private final Ollama ollama;
@@ -20,7 +21,9 @@ class TaskController {
     record Approval(String fingerprint) {}
     @GetMapping("/system") Ollama.Status system() { return ollama.status(); }
     @GetMapping("/tasks") List<Task> list(Principal user) { return store.list(id(user)); }
-    @GetMapping("/tasks/{task}") Task get(Principal user, @PathVariable UUID task) { return store.get(id(user), task); }
+    @GetMapping("/spaces") List<Task.Candidate> spaces(@RequestParam(defaultValue="부산광역시 사하구") String region) { if (region.isBlank() || region.length() > 100) throw Accounts.bad("지역을 확인해 주세요."); return demo.nearby(region); }
+    @PostMapping("/tasks/draft") Task draft(Principal user, @RequestBody Task.Conditions conditions) { return demo.draft(id(user), conditions); }
+    @GetMapping("/tasks/{task}") Task get(Principal user, @PathVariable UUID task) { return service.get(id(user), task); }
     @PostMapping(value = "/tasks", consumes = "multipart/form-data") Task create(Principal user, @RequestParam(defaultValue = "") String text, @RequestPart(required = false) MultipartFile image) throws IOException {
         if (text.length() > 6000 || (text.isBlank() && (image == null || image.isEmpty()))) throw Accounts.bad("안내문 이미지 또는 6,000자 이내의 요청을 입력해 주세요.");
         byte[] bytes = null;

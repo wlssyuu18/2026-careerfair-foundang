@@ -83,38 +83,36 @@ CREATE TABLE IF NOT EXISTS resource_listing (
 CREATE INDEX IF NOT EXISTS resource_listing_resource_idx ON resource_listing(resource_id) WHERE active;
 CREATE INDEX IF NOT EXISTS resource_listing_sync_idx ON resource_listing(source_code, fetched_at);
 
--- Exact requested interval + quantity only; this cache never holds or reserves inventory.
-CREATE TABLE IF NOT EXISTS resource_availability (
-    listing_id UUID NOT NULL REFERENCES resource_listing(id) ON DELETE CASCADE,
+-- Simulated inventory is deliberately separate from venue metadata and external bookings.
+CREATE TABLE IF NOT EXISTS demo_space_block (
+    listing_id UUID NOT NULL REFERENCES resource_listing(id),
     starts_at TIMESTAMPTZ NOT NULL,
-    ends_at TIMESTAMPTZ NOT NULL,
-    requested_quantity INTEGER NOT NULL CHECK (requested_quantity > 0),
-    status VARCHAR(12) NOT NULL CHECK (status IN ('AVAILABLE','UNAVAILABLE','UNKNOWN','ERROR')),
-    remaining_quantity INTEGER CHECK (remaining_quantity >= 0),
-    total_price BIGINT CHECK (total_price >= 0),
-    evidence TEXT,
-    failure_reason TEXT,
-    checked_at TIMESTAMPTZ NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    PRIMARY KEY (listing_id, starts_at, ends_at, requested_quantity),
-    CHECK (ends_at > starts_at),
-    CHECK (expires_at > checked_at),
-    CHECK (status <> 'AVAILABLE' OR evidence IS NOT NULL AND btrim(evidence) <> ''),
-    CHECK (status <> 'AVAILABLE' OR remaining_quantity IS NULL OR remaining_quantity >= requested_quantity)
+    ends_at TIMESTAMPTZ NOT NULL CHECK (ends_at > starts_at),
+    PRIMARY KEY(listing_id, starts_at)
 );
-CREATE INDEX IF NOT EXISTS resource_availability_expiry_idx ON resource_availability(expires_at);
+CREATE TABLE IF NOT EXISTS demo_booking (
+    task_id UUID PRIMARY KEY REFERENCES agent_task(id) ON DELETE CASCADE,
+    listing_id UUID NOT NULL REFERENCES resource_listing(id),
+    starts_at TIMESTAMPTZ NOT NULL,
+    ends_at TIMESTAMPTZ NOT NULL CHECK (ends_at > starts_at),
+    approve_at TIMESTAMPTZ NOT NULL,
+    status VARCHAR(12) NOT NULL CHECK (status IN ('PENDING','CONFIRMED','CANCELLED'))
+);
+CREATE INDEX IF NOT EXISTS demo_booking_slot_idx ON demo_booking(listing_id, starts_at, ends_at) WHERE status <> 'CANCELLED';
 
-CREATE OR REPLACE VIEW current_resource_availability AS
-SELECT a.listing_id, a.starts_at, a.ends_at, a.requested_quantity,
-       CASE WHEN a.checked_at <= CURRENT_TIMESTAMP AND a.expires_at > CURRENT_TIMESTAMP
-                 AND l.active AND r.active AND s.enabled AND s.availability_method <> 'NONE'
-                 AND l.booking_channel = 'ONLINE'
-            THEN a.status ELSE 'UNKNOWN' END AS status,
-       a.remaining_quantity, a.total_price, a.evidence, a.failure_reason, a.checked_at, a.expires_at
-FROM resource_availability a
-JOIN resource_listing l ON l.id = a.listing_id
-JOIN resource r ON r.id = l.resource_id
-JOIN resource_source s ON s.code = l.source_code;
+-- Only stable venue metadata is stored. Date/time availability is checked on demand.
+ALTER TABLE resource
+    ADD COLUMN IF NOT EXISTS facilities TEXT[] NOT NULL DEFAULT '{}',
+    ADD COLUMN IF NOT EXISTS privacy VARCHAR(10) NOT NULL DEFAULT 'UNKNOWN' CHECK (privacy IN ('PRIVATE','SHARED','UNKNOWN')),
+    ADD COLUMN IF NOT EXISTS interview_policy VARCHAR(10) NOT NULL DEFAULT 'CHECK' CHECK (interview_policy IN ('EXPLICIT','CHECK')),
+    ADD COLUMN IF NOT EXISTS area_sqm NUMERIC(9,2) CHECK (area_sqm > 0),
+    ADD COLUMN IF NOT EXISTS address_precision VARCHAR(10) NOT NULL DEFAULT 'UNKNOWN' CHECK (address_precision IN ('EXACT','AREA','UNKNOWN'));
+ALTER TABLE resource_listing
+    ADD COLUMN IF NOT EXISTS price_basis VARCHAR(10) NOT NULL DEFAULT 'UNKNOWN' CHECK (price_basis IN ('ROOM','PERSON','UNKNOWN')),
+    ADD COLUMN IF NOT EXISTS minimum_people INTEGER CHECK (minimum_people > 0),
+    ADD COLUMN IF NOT EXISTS minimum_minutes INTEGER CHECK (minimum_minutes > 0),
+    ADD COLUMN IF NOT EXISTS booking_notes TEXT;
+CREATE INDEX IF NOT EXISTS resource_facilities_idx ON resource USING GIN(facilities) WHERE active;
 
 -- Registry only: credentials, integrations and real inventory are not seeded here.
 INSERT INTO resource_source(code, name, homepage) VALUES
@@ -122,3 +120,29 @@ INSERT INTO resource_source(code, name, homepage) VALUES
     ('seoul_reservation', '서울시 공공서비스예약', 'https://yeyak.seoul.go.kr/'),
     ('naver_booking', '네이버 예약', 'https://booking.naver.com/')
 ON CONFLICT (code) DO NOTHING;
+
+-- Retire the unused cache only when it is empty; never discard unexpected data.
+-- Spring's statement splitter recognizes single-quoted bodies, but not dollar quotes.
+DO '
+BEGIN
+    IF to_regclass(''public.resource_availability'') IS NOT NULL THEN
+        LOCK TABLE resource_availability IN ACCESS EXCLUSIVE MODE;
+        IF EXISTS (SELECT 1 FROM resource_availability) THEN
+            RAISE EXCEPTION ''resource_availability is not empty; review before removing'';
+        END IF;
+        DROP VIEW IF EXISTS current_resource_availability;
+        DROP TABLE resource_availability;
+    END IF;
+END;';
+
+-- Keep approval and booking history, but remove obsolete candidate inventory fields.
+UPDATE agent_task t
+SET data = jsonb_set(t.data, '{candidates}', (
+    SELECT jsonb_agg(candidate - 'availability' - 'remainingQuantity' - 'remaining_quantity' ORDER BY position)
+    FROM jsonb_array_elements(t.data->'candidates') WITH ORDINALITY AS c(candidate, position)
+))
+WHERE jsonb_typeof(t.data->'candidates') = 'array'
+AND EXISTS (
+    SELECT 1 FROM jsonb_array_elements(t.data->'candidates') candidate
+    WHERE candidate ?| ARRAY['availability', 'remainingQuantity', 'remaining_quantity']
+);

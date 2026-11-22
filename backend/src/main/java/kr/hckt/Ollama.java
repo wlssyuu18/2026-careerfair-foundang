@@ -74,8 +74,12 @@ class Ollama {
         return RequestConditions.merge(text, today, p.region(), p.budget(), p.equipment(), json.treeToValue(result, Task.Conditions.class));
     }
     JsonNode action(String system, Object observation) {
-        var schema = Map.of("type", "object", "properties", Map.of("action", Map.of("type", "string", "enum", List.of("navigate", "click", "fill", "select", "wait", "remember_candidate", "finish", "ask_user", "prepare_approval", "unavailable", "report_result", "handoff")), "reason", Map.of("type", "string"), "args", Map.of("type", "object")), "required", List.of("action", "reason", "args"));
+var schema = Map.of("type", "object", "properties", Map.of("action", Map.of("type", "string", "enum", List.of("navigate", "click", "fill", "select", "wait", "ask_user", "prepare_approval", "unavailable", "report_result", "handoff")), "reason", Map.of("type", "string"), "args", Map.of("type", "object")), "required", List.of("action", "reason", "args"));
         return chat(List.of(Map.of("role", "system", "content", system), Map.of("role", "user", "content", json.writeValueAsString(observation))), schema);
+    }
+    JsonNode availabilityAction(String system, Object observation, Duration timeout) {
+        var schema = Map.of("type","object","properties",Map.of("action",Map.of("type","string","enum",List.of("navigate","click","fill","select","wait","report_availability")),"args",Map.of("type","object")),"required",List.of("action","args"));
+        return chat(List.of(Map.of("role","system","content",system),Map.of("role","user","content",json.writeValueAsString(observation))),schema,8192,768,timeout);
     }
     private JsonNode chat(List<?> messages, Map<?, ?> schema) {
         return chat(messages, schema, 8192, 1024, Duration.ofMinutes(3));

@@ -18,7 +18,7 @@ class SecurityConfig {
     @Bean HttpSessionCsrfTokenRepository csrfTokens() { return new HttpSessionCsrfTokenRepository(); }
     @Bean SecurityFilterChain security(HttpSecurity http, HttpSessionSecurityContextRepository contexts, HttpSessionCsrfTokenRepository csrf) throws Exception {
         return http
-            .authorizeHttpRequests(a -> a.requestMatchers("/api/auth/**", "/api/system", "/error").permitAll().anyRequest().authenticated())
+            .authorizeHttpRequests(a -> a.requestMatchers("/api/auth/**", "/api/system", "/api/spaces", "/error").permitAll().anyRequest().authenticated())
             .csrf(c -> c.csrfTokenRepository(csrf))
             .securityContext(c -> c.securityContextRepository(contexts))
             .exceptionHandling(e -> e.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
