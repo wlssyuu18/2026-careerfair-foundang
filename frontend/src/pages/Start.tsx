@@ -1,6 +1,6 @@
 import DatePicker from '../DatePicker';
 import RegionSearch from '../RegionSearch';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api';
 import { age, birthInput, passwordStrength } from '../logic';
 import { Asset, BudgetInput, Button, Icon, Modal, Notice, Top } from '../components';
@@ -15,6 +15,13 @@ export default function Start({ view, go, profile, setProfile, onLogin }: Props)
   const [name, setName] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const strength = passwordStrength(password); const years = age(profile.birthDate);
   const [editing, setEditing] = useState<'region' | 'age' | null>(null);
+  const [intro, setIntro] = useState(0);
+  const [introPaused, setIntroPaused] = useState(false);
+  useEffect(() => {
+    if (view !== 'intro' || introPaused || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = window.setInterval(() => setIntro(current => (current + 1) % 2), 2500);
+    return () => window.clearInterval(timer);
+  }, [view, introPaused]);
   const toggle = (item: string) => setProfile({ ...profile, equipment: profile.equipment.includes(item) ? profile.equipment.filter(e => e !== item) : [...profile.equipment, item] });
   async function submit(event: FormEvent) {
     event.preventDefault(); setError('');
@@ -32,13 +39,15 @@ export default function Start({ view, go, profile, setProfile, onLogin }: Props)
       setPassword(''); setConfirmation('');
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
-  if (view === 'splash' || view === 'intro') return <section className="intro-page">
-    <figure className="intro-art" aria-label="안내문을 읽고 공간을 찾는 과정 예시">
-      <div className="intro-ai"><Asset id="3bac0" size={14}/>AI가 조건 3개를 읽었어요</div>
-      <div className="intro-paper"><strong>✉ 1차 화상면접 안내</strong><span className="paper-highlight">일시: 11월 27일(금) 14:00</span><span className="paper-highlight">방식: Zoom 화상면접</span><i/><span className="paper-highlight">준비물: 웹캠, 마이크</span><i className="short"/></div>
-      <div className="intro-match"><span className="info-icon"><Icon name="pin" size={18}/></span><div><strong>공공 화상면접실</strong><span>13:30–15:30 · 무료</span></div></div>
+  if (view === 'splash') return <section className="splash-page" aria-label="찾았당 시작 화면"><div className="splash-brand"><span className="splash-mark"><Icon name="spark" size={46}/></span><h1>찾았당</h1><p>필요한 공간과 물품을<br/>한 번에 찾아드려요</p></div><p className="splash-footer">청년 생활 지원 예약·대여 AI 에이전트</p></section>;
+  if (view === 'intro') return <section className="intro-page" aria-label="서비스 소개" aria-roledescription="캐러셀">
+    <button type="button" className="intro-playback" aria-label={introPaused ? '소개 자동 넘김 재생' : '소개 자동 넘김 일시정지'} onClick={() => setIntroPaused(value => !value)}>{introPaused ? '▶' : 'Ⅱ'}</button>
+    <figure key={intro} className="intro-art" aria-label={intro === 0 ? '필요한 공간과 물품을 한 번에 찾는 예시' : '예약 내역을 한눈에 확인하는 예시'}>
+      {intro === 0 ? <>
+      <div className="intro-services">{[['monitor','면접실'],['bag','정장'],['camera','촬영장비'],['room','스터디룸'],['tool','공구'],['ball','운동시설']].map(([icon,label]) => <div key={label}><span><Icon name={icon}/></span><strong>{label}</strong></div>)}</div><span className="intro-compare">✦ 공공 + 민간 한 번에 비교</span>
+      </> : <div className="intro-reservations"><div className="row spread"><strong>나의 예약</strong><span>예시</span></div><article className="booking-card confirmed"><div className="booking-badges"><span className="tag green">예약 확정</span><span className="tag gray">D-7</span></div><h3>청년센터 화상면접실</h3><p className="candidate-meta">11/27(금) 13:30–15:30 · 무료</p><div className="timeline"><div><i/><span>입실</span><strong>13:30</strong></div><div><i/><span>퇴실</span><strong>15:30</strong></div></div></article><article className="booking-card waiting"><div className="booking-badges"><span className="tag yellow">승인 대기</span></div><h3>1인 스터디룸</h3><p className="candidate-meta">11/28(토) 10:00–12:00</p></article></div>}
     </figure>
-    <div className="intro-copy"><h1>면접 안내문만 올리면<br/><em>화상면접 공간</em> 예약까지</h1><p>AI가 면접 시각과 필요한 장비를 읽고,<br/>공공·민간 공간을 한 번에 찾아 예약을 도와드려요.</p><div className="step-dots" aria-label="소개 1단계"><i className="active"/><i/><i/></div></div>
+    <div className="intro-copy">{intro === 0 ? <><h1>면접 안내문만 올리면<br/><em>화상면접 공간</em> 예약까지</h1><p>AI가 면접 시각과 필요한 장비를 읽고,<br/>공공·민간 공간을 한 번에 찾아 예약을 도와드려요.</p></> : <><h1>다가오는 일정도<br/><em>예약 내역</em>에서 한눈에</h1><p>예약 확정과 승인 대기를 구분하고,<br/>이용 시간과 장소를 다시 확인해요.</p></>}<div className="step-dots" aria-label="서비스 소개">{['공간 예약', '예약 관리'].map((label, index) => <button type="button" key={label} aria-label={label} aria-pressed={intro === index} onClick={() => setIntro(index)}><i className={intro === index ? 'active' : ''}/></button>)}</div></div>
     <div className="intro-bottom"><Button onClick={() => go('conditions')}>시작하기</Button><p>이미 계정이 있어요 · <button type="button" onClick={() => go('login')}>로그인</button></p></div>
   </section>;
   if (view === 'conditions') return <section className="onboarding-page">

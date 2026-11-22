@@ -14,7 +14,8 @@ export function daysUntil(date: string, now = Date.now()): number {
 }
 
 export function isPublicCandidate(c: Candidate): boolean {
-  try { return ['eshare.go.kr', 'www.eshare.go.kr', 'yeyak.seoul.go.kr'].includes(new URL(c.url).hostname); }
+  if (c.provider?.includes('공공')) return true;
+  try { return ['eshare.go.kr', 'www.eshare.go.kr', 'yeyak.seoul.go.kr', 'youthjob.hscity.go.kr', 'youthjob.dongjak.go.kr', 'www.ulsannamgu.go.kr', 'commonzfield.kr', 'job.seoul.go.kr'].includes(new URL(c.url).hostname); }
   catch { return false; }
 }
 
@@ -91,4 +92,4 @@ export const passwordStrength = (value: string) => [value.length >= 10, /[a-zA-Z
 export const money = (value: number | null) => value === null ? '비용 확인 필요' : value === 0 ? '무료' : `${value.toLocaleString('ko-KR')}원`;
 export const safeUrl = (value: string) => { try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password ? url.href : undefined; } catch { return undefined; } };
 export const running = (state: string) => ['ANALYZING', 'SEARCHING', 'PREPARING', 'SUBMITTING', 'VERIFYING'].includes(state);
-export const stateLabel: Record<string, string> = { ANALYZING: '안내문 분석 중', NEEDS_CONDITIONS: '조건 확인 필요', SEARCHING: '공간을 찾고 있어요', CANDIDATES: '후보 확인', PREPARING: '예약 조건 확인 중', AUTH_REQUIRED: '인증 필요', INPUT_REQUIRED: '추가 확인 필요', APPROVAL_REQUIRED: '최종 승인 대기', SUBMITTING: '신청 제출 중', VERIFYING: '예약 결과 확인 중', RECEIVED: '접수 완료', PENDING: '기관 승인 대기', CONFIRMED: '예약 확정', UNKNOWN: '결과 확인 필요', FAILED: '진행 불가', STOPPED: '작업 중단', HANDOFF: '앱 예약 지원 안 됨' };
+export const stateLabel: Record<string, string> = { ANALYZING: '안내문 분석 중', NEEDS_CONDITIONS: '조건 확인 필요', SEARCHING: '공간을 찾고 있어요', CANDIDATES: '후보 확인', PREPARING: '예약 조건 확인 중', AUTH_REQUIRED: '인증 필요', INPUT_REQUIRED: '추가 확인 필요', APPROVAL_REQUIRED: '최종 승인 대기', SUBMITTING: '신청 제출 중', VERIFYING: '예약 결과 확인 중', RECEIVED: '접수 완료', PENDING: '기관 승인 대기', CONFIRMED: '예약 확정', UNKNOWN: '결과 확인 필요', FAILED: '진행 불가', STOPPED: '작업 중단', HANDOFF: '시설 사이트에서 이어서 예약' };

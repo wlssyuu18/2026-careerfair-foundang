@@ -1,4 +1,4 @@
-import type { AgentTask, Conditions, Profile, SystemStatus } from './types';
+import type { AgentTask, Candidate, Conditions, Profile, SystemStatus } from './types';
 
 let csrf: { token: string; headerName: string } | undefined;
 export class ApiError extends Error {
@@ -31,6 +31,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 const post = <T>(path: string, body: unknown = {}) => request<T>(path, { method: 'POST', body: JSON.stringify(body) });
 export const api = {
+  spaces: (region: string) => request<Candidate[]>('/spaces?region=' + encodeURIComponent(region)),
+  draft: (conditions: Conditions) => post<AgentTask>('/tasks/draft', conditions),
   me: () => request<Profile>('/account'),
   signup: (body: unknown) => post<Profile>('/auth/signup', body),
   login: (email: string, password: string) => post<Profile>('/auth/login', { email, password }),

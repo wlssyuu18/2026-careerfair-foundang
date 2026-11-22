@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { isPublicCandidate, money, safeUrl, timeLabel, timeValue, wonFromManwon } from './logic';
-import type { Candidate } from './types';
+import type { Availability, BookingCheck, Candidate } from './types';
 
 export function Icon({ name, size = 24 }: { name: string; size?: number }) {
   const paths: Record<string, ReactNode> = {
@@ -21,6 +21,7 @@ export function Icon({ name, size = 24 }: { name: string; size?: number }) {
     tool: <path d="m14 6 4 4 3-3a6 6 0 0 1-7 8l-6 6-5-5 6-6a6 6 0 0 1 8-7Z"/>,
     ball: <><circle cx="12" cy="12" r="9"/><path d="m12 7 5 4-2 6H9l-2-6Zm0-4v4M3 10l4 1m10 0 4-1m-6 7 3 3m-9-3-3 3"/></>,
     close: <path d="m6 6 12 12M6 18 18 6"/>,
+    logout: <><path d="M9 3H5v18h4M13 7l5 5-5 5M9 12h12"/></>,
     clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name] ?? paths.spark}</svg>;
@@ -30,9 +31,6 @@ export function Button({ children, secondary, ...props }: ButtonHTMLAttributes<H
 }
 export function Asset({ id, size = 24 }: { id: string; size?: number }) {
   return <span className="asset-icon" style={{ width: size, height: size }} aria-hidden="true"><img src={'/figma/' + id + '.svg'} alt=""/></span>;
-}
-export function DeviceBar() {
-  return <div className="device-bar" aria-hidden="true"><strong>9:41</strong><img src="/figma/5ae3c.svg" alt=""/></div>;
 }
 export function Top({ title, back, label, brand, right, leading = false }: { title: string; back?: () => void; label?: string; brand?: boolean; right?: ReactNode; leading?: boolean }) {
   return <header className={'page-top' + (brand || leading ? ' leading' : '')}>
@@ -98,13 +96,15 @@ export function TimePicker({ label, value, onChange }: { label: string; value: s
     </Modal>}
   </div>;
 }
-export function CandidateCard({ candidate: c, onSelect, recommended = false }: { candidate: Candidate; onSelect: () => void; recommended?: boolean }) {
+export function CandidateCard({ candidate: c, availability, booking, disabled, onSelect, recommended = false }: { candidate: Candidate; availability?: Availability; booking?: BookingCheck; disabled?: boolean; onSelect: () => void; recommended?: boolean }) {
   const space = c.equipment.filter(item => /공간|방음|독립/.test(item));
   const devices = c.equipment.filter(item => !space.includes(item));
   return <article className={'resource-card' + (recommended ? ' recommended' : '')}>
-    <div className="candidate-top"><details className="candidate-source"><summary aria-label="후보 확인 근거"><Tag>{isPublicCandidate(c) ? '공공' : c.provider}{c.price === 0 ? ' · 무료' : ''}</Tag></summary><div><strong>{c.provider}</strong><p>{c.evidence}</p><p>조회 {new Date(c.observedAt).toLocaleString('ko-KR')}</p>{safeUrl(c.url) && <a href={safeUrl(c.url)} target="_blank" rel="noreferrer">원문 확인</a>}</div></details>{recommended && <Tag tone="yellow">AI 추천 1순위</Tag>}<strong className="price">{money(c.price)}</strong></div>
-    <h3>{c.name}</h3><p className="candidate-meta"><span><Asset id="23a96" size={14}/>{c.address || '주소 확인 필요'}</span><span>·</span><span><Asset id="ee3ab" size={14}/>{c.availability || '예약 가능 여부 확인 필요'}</span></p>
+    <div className="candidate-top"><Tag>{isPublicCandidate(c) ? '공공' : c.provider}</Tag>{recommended && <Tag tone="yellow">AI 추천 1순위</Tag>}<strong className="price">{booking?.totalPrice != null ? money(booking.totalPrice) : c.price === null ? '요금 미공개' : money(c.price) + (c.price > 0 ? ' 예상' : '')}</strong></div>
+    <h3>{c.name}</h3><p className="candidate-meta"><span><Asset id="23a96" size={14}/>{c.address || '주소 확인 필요'}</span></p>
+    <p className={'live-availability ' + (availability?.status ?? 'UNKNOWN')}><Asset id="ee3ab" size={14}/>{booking?.status === 'READY' ? '예약 조건 확인 완료' : (booking?.status === 'EXTERNAL' ? availability?.status === 'AVAILABLE' ? '요청 시간 이용 가능 · ' : '요청 시간 확인 필요 · ' : '') + (booking?.message || '예약 조건 확인 중')}</p>
+    {booking?.cancellation && <p className="candidate-meta">{booking.cancellation}</p>}
     <ul className="checks"><li><Asset id="1619c" size={14}/>{c.eligibility || '이용 자격 확인 필요'}</li>{devices.length > 0 && <li><Asset id="1619c" size={14}/>{devices.join(' · ')}</li>}{space.length > 0 && <li><Asset id="1619c" size={14}/>{space.join(' · ')}</li>}</ul>
-    <Button secondary={!recommended} onClick={onSelect}>{recommended ? '이 공간 예약하기' : '예약하기'}</Button>
+    {booking?.status === 'READY' ? <Button secondary={!recommended} disabled={disabled} onClick={onSelect}>이 공간 예약하기</Button> : availability?.status === 'UNAVAILABLE' ? <Button secondary disabled>선택 시간 예약 마감</Button> : c.url.startsWith('https://example.com/spaces/') ? <Button secondary disabled>예약 조건 확인 필요</Button> : safeUrl(booking?.url || c.url) ? <a className="button secondary" href={safeUrl(booking?.url || c.url)} target="_blank" rel="noreferrer">{booking?.status === 'EXTERNAL' ? '시설 사이트에서 예약하기' : '시설 사이트에서 확인하기'}</a> : <Button secondary disabled>예약 조건 확인 필요</Button>}
   </article>;
 }
