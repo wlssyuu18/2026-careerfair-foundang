@@ -1,17 +1,50 @@
+# Local configuration and credentials (keep key-free examples)
 .env
 .env.*
 !.env.example
+!.env.*.example
+.aws/
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+
+# Dependencies, build output and caches
 node_modules/
+.pnpm-store/
+.vite/
+.cache/
 dist/
 .gradle/
 build/
 bin/
+out/
 *.class
+*.tsbuildinfo
+.eslintcache
 *.pyc
 __pycache__/
+
+# Test output and local working files
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+/tmp/
+/temp/
+*.log
+*.hprof
+hs_err_pid*
+
+# Editor and operating-system files
 .idea/
 .vscode/
 .codex/
 .DS_Store
 Thumbs.db
-*.log
+Desktop.ini
+*.swp
+*.swo
+*~
