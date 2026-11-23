@@ -179,6 +179,8 @@ npx --yes vercel login
 
 ngrok의 HTTPS 주소가 발급되면 `frontend/vercel.json`에 `/api/:path*`를 해당 주소의 `/api/:path*`로 전달하는 rewrite를 설정하고 `frontend`에서 `npx --yes vercel --prod`로 배포합니다. [Vercel 외부 API 프록시 설정](https://vercel.com/docs/routing/rewrites)을 따릅니다.
 
+GitHub 자동 배포는 Vercel 프로젝트에 이 저장소를 연결하고 Production Branch를 `main`, Root Directory를 `frontend`로 설정합니다. GitHub 연결 전의 푸시는 자동으로 다시 처리되지 않으므로 연결 후 새 커밋의 배포 상태를 확인합니다.
+
 이 구성은 Mac이 켜져 있고 잠들지 않으며, 사용자 로그인·Docker Desktop·Ollama·백엔드·ngrok이 실행 중이어야 동작합니다.
 
 ## 팀원
