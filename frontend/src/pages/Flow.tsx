@@ -4,7 +4,7 @@ import { api } from '../api';
 import RegionSearch from '../RegionSearch';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Asset, BudgetInput, Button, CandidateCard, Icon, InfoRow, Modal, Notice, Tag, TimePicker, Top } from '../components';
-import { bookingGroups, budgetLabel, compactRegion, conditionError, dateLabel, extractedStart, isPastSlot, isPublicCandidate, money, running, safeUrl, stateLabel, taskView, timeLabel } from '../logic';
+import { budgetLabel, compactRegion, conditionError, dateLabel, extractedStart, isPastSlot, isPublicCandidate, money, running, safeUrl, stateLabel, timeLabel } from '../logic';
 import type { AgentTask, Candidate, Conditions, Profile, View } from '../types';
 
 type Props = { view: View; go: (v: View) => void; profile: Profile; loggedIn: boolean; task: AgentTask | null; tasks: AgentTask[]; busy: boolean; perform: (action: () => Promise<unknown>) => Promise<void>; analyze: (text: string, file?: File) => Promise<void>; search: (conditions: Conditions) => Promise<void>; select: (id: string) => Promise<void>; respond: (answer: string, submitted?: boolean) => Promise<void>; approve: () => Promise<void>; stop: () => Promise<void> };
@@ -68,7 +68,6 @@ export default function Flow(p: Props & { browse?: () => Promise<void> }) {
   const [category, setCategory] = useState('전체');
   const task = p.task; const active = !!task && running(task.state);
   const needResponse = task?.state === 'INPUT_REQUIRED';
-  const upcoming = bookingGroups(p.tasks).scheduled.sort((a, b) => (a.conditions.date + a.conditions.start).localeCompare(b.conditions.date + b.conditions.start));
   useEffect(() => { setConditions(p.task?.conditions ?? null); setError(''); setEditing(null); setCategory('전체'); }, [p.task?.id, p.task?.state]);
   async function chooseFile(value?: File) {
     if (!value || p.busy || active) return;
@@ -112,8 +111,6 @@ export default function Flow(p: Props & { browse?: () => Promise<void> }) {
         <div className="nearby-heading"><h2>근처 면접 공간</h2><button className="text-link" type="button" onClick={() => void p.browse?.()}>직접 찾아보기 ›</button></div>
         <div className="nearby-list">{nearby.slice(0,3).map((room, i) => <button type="button" key={room.id} className="nearby-room" onClick={() => void p.browse?.()}><span className={'room-thumb thumb-' + i}><Icon name={i === 0 ? 'monitor' : 'room'} size={23}/></span><span className="room-copy"><strong>{room.name}</strong><small>{room.equipment.slice(0,3).join(' · ')}</small></span><span className="room-cost"><strong>{money(room.price)}</strong><small>{isPublicCandidate(room) ? '공공' : '민간'}</small></span></button>)}{nearbyError && <p className="caption">{nearbyError}</p>}{!nearby.length && !nearbyError && <p className="caption">지역 공간을 찾고 있어요…</p>}</div>
 
-        {p.profile.notifications && upcoming.length > 0 && <button type="button" className="booking-reminder" onClick={() => p.go('reservations')}><Asset id="6fe04" size={18}/><span>다가오는 예약 {upcoming.length}건<strong>{dateLabel(upcoming[0].conditions.date)} {upcoming[0].conditions.start} · {upcoming[0].approval?.name || upcoming[0].conditions.purpose}</strong></span><Asset id="67a56" size={18}/></button>}
-        {task && !['CONFIRMED', 'STOPPED'].includes(task.state) && <button className="text-button" type="button" onClick={() => p.go(taskView(task))}>진행 중인 준비 이어보기</button>}
       </>}
       {p.view === 'capture' && <CameraCapture busy={p.busy || active} onCapture={chooseFile} onGallery={() => gallery.current?.click()}/>}
 {p.view === 'analyzing' && (task && ['FAILED', 'STOPPED'].includes(task.state) ? <section className="analysis-screen" role="status"><span className="analysis-symbol"><Icon name="spark" size={42}/></span><h1>{task.state === 'FAILED' ? '안내문을 읽지 못했어요' : '분석을 중단했어요'}</h1><p>{task.message}</p><Button secondary onClick={() => p.go('home')}>다시 입력하기</Button></section> : <AnalysisCarousel onCancel={task?.state === 'ANALYZING' ? () => void p.perform(async () => { await p.stop(); p.go('home'); }) : undefined}/>)}
