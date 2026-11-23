@@ -127,11 +127,15 @@ final class RequestConditions {
         int until = end.getHour() * 60 + end.getMinute();
         int entry = Math.floorDiv(from - 30, 30) * 30;
         int exit = (until + 29) / 30 * 30;
+        var equipment = c.equipment();
+        if (equipment.isEmpty() && c.purpose().matches(".*(온라인 시험|적성|역량검사|화상면접|온라인 면접).*")) {
+            equipment = List.of("노트북", "웹캠").stream().filter(item -> !c.ownedEquipment().contains(item)).toList();
+        }
         var notes = new ArrayList<>(c.notes());
         notes.addFirst("안내문 일정 " + c.start() + "~" + c.end() + ". 대여 시간은 시작 전 30분을 확보해 30분 단위로 내림하고, 종료는 30분 단위로 올렸어요.");
         // shortcut: 날짜를 넘기는 대여는 현재 예약 모델에서 지원하지 않아 직접 확인하도록 비워 둠.
         if (entry < 0 || exit >= 1440) notes.addFirst("날짜를 넘기는 대여 시간은 자동 설정할 수 없어요. 입실·퇴실 시간을 직접 확인해 주세요.");
-        return new Task.Conditions(c.purpose(), c.date(), entry < 0 ? "" : LocalTime.of(entry / 60, entry % 60).format(HHMM), exit >= 1440 ? "" : LocalTime.of(exit / 60, exit % 60).format(HHMM), c.region(), c.budget(), c.equipment(), c.ownedEquipment(), notes);
+        return new Task.Conditions(c.purpose(), c.date(), entry < 0 ? "" : LocalTime.of(entry / 60, entry % 60).format(HHMM), exit >= 1440 ? "" : LocalTime.of(exit / 60, exit % 60).format(HHMM), c.region(), c.budget(), equipment, c.ownedEquipment(), notes);
     }
     private static String first(String value, String fallback) { return value == null || value.isBlank() ? fallback : value; }
     private static Task.Conditions result(String purpose, String date, String start, String end, String region, Integer budget, List<String> required, List<String> owned) {

@@ -4,7 +4,7 @@ import { api } from '../api';
 import RegionSearch from '../RegionSearch';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Asset, BudgetInput, Button, CandidateCard, Icon, InfoRow, Modal, Notice, Tag, TimePicker, Top } from '../components';
-import { bookingGroups, budgetLabel, compactRegion, conditionError, dateLabel, isPastSlot, isPublicCandidate, money, running, safeUrl, stateLabel, taskView, timeLabel } from '../logic';
+import { bookingGroups, budgetLabel, compactRegion, conditionError, dateLabel, extractedStart, isPastSlot, isPublicCandidate, money, running, safeUrl, stateLabel, taskView, timeLabel } from '../logic';
 import type { AgentTask, Candidate, Conditions, Profile, View } from '../types';
 
 type Props = { view: View; go: (v: View) => void; profile: Profile; loggedIn: boolean; task: AgentTask | null; tasks: AgentTask[]; busy: boolean; perform: (action: () => Promise<unknown>) => Promise<void>; analyze: (text: string, file?: File) => Promise<void>; search: (conditions: Conditions) => Promise<void>; select: (id: string) => Promise<void>; respond: (answer: string, submitted?: boolean) => Promise<void>; approve: () => Promise<void>; stop: () => Promise<void> };
@@ -120,7 +120,7 @@ export default function Flow(p: Props & { browse?: () => Promise<void> }) {
       {p.view === 'extracted' && conditions && <form className="extracted-form" onSubmit={search}>
         <div className="extraction-intro"><div className="document-symbol" aria-hidden="true"><i/><i/><i/><i/></div><div><Tag>AI 추출 완료</Tag><h1>안내문에서 이용 정보를 읽었어요</h1><p>틀린 내용은 눌러서 바로 고칠 수 있어요</p></div></div>
         <h2 className="group-title">{conditions.purpose.includes('면접') ? '면접 정보' : '이용 정보'}</h2><section className="info-group">
-          <InfoRow icon="clock" label="대여 일시" value={conditions.date ? dateLabel(conditions.date, true) + ' ' + timeLabel(conditions.start) : '입력이 필요해요'} badge={conditions.date && conditions.start ? '추천 시간' : '확인 필요'} danger={!conditions.date || !conditions.start} onClick={() => setEditing('schedule')}/>
+          <InfoRow icon="clock" label="대여 일시" value={conditions.date ? dateLabel(conditions.date, true) + ' ' + timeLabel(extractedStart(conditions)) : '입력이 필요해요'} badge={conditions.date && conditions.start ? 'AI 추출' : '확인 필요'} danger={!conditions.date || !conditions.start} onClick={() => setEditing('schedule')}/>
           <InfoRow icon="monitor" label="이용 목적" value={conditions.purpose || '입력이 필요해요'} badge={conditions.purpose ? 'AI 추출' : '확인 필요'} onClick={() => setEditing('purpose')}/>
           <InfoRow icon="monitor" label="필요 장비" value={<>{conditions.equipment.join(' · ') || '장비를 선택해 주세요'}{(conditions.ownedEquipment ?? []).length > 0 && <small className="owned-equipment">보유: {conditions.ownedEquipment.join(' · ')}</small>}</>} onClick={() => setEditing('equipment')}/>
         </section>
@@ -129,9 +129,9 @@ export default function Flow(p: Props & { browse?: () => Promise<void> }) {
           <InfoRow icon="room" label="공간 조건" value={'1인 독립 공간 · ' + (compactRegion(conditions.region) || '지역 확인 필요')} onClick={() => setEditing('space')}/>
           <InfoRow icon="bag" label="예산" value={conditions.budget === null ? '입력이 필요해요' : budgetLabel(conditions.budget)} badge={conditions.budget === null ? '확인 필요' : undefined} danger={conditions.budget === null} onClick={() => setEditing('budget')}/>
         </section>
-        {isPastSlot(conditions.date, conditions.start) && <Notice error>안내문의 일정은 이미 지났어요. 이용할 날짜와 시간을 수정해 주세요.</Notice>}
+        {isPastSlot(conditions.date, conditions.start) && <Notice error>안내문의 일정은 이미 지났어요.<br/>이용할 날짜와 시간을 수정해 주세요.</Notice>}
         {error && <Notice error>{error}</Notice>}
-        {conditions.notes.length > 0 && <div className="extraction-notes">{conditions.notes.map((note, i) => <p key={i}>{note}</p>)}</div>}
+        {conditions.notes.length > 0 && <div className="extraction-notes">{conditions.notes.filter(note => !note.startsWith('안내문 일정 ')).map((note, i) => <p key={i}>{note}</p>)}</div>}
         <footer className="extraction-footer"><p>추출 내용이 안내문과 같은지 확인해 주세요</p><div><Button type="button" secondary onClick={() => { setFileError(''); p.go('capture'); }}>다시 촬영</Button><Button className="dark" type="submit" disabled={p.busy || active}>이 조건으로 공간 찾기</Button></div></footer>
       </form>}
       {(p.view === 'results' || p.view === 'approval') && resultList}

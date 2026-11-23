@@ -95,7 +95,7 @@ test('booking cards and approval show verified conditions without diagnostic tog
     const task = { id: 'task', state: 'APPROVAL_REQUIRED', conditions, candidates: [candidate], bookingChecks: { room: { status: 'READY', totalPrice: 0 } }, selectedId: 'room', approval, events: [] };
     const props = { task, tasks: [], profile: {}, view: 'approval', go() {} };
     const extracted = renderToStaticMarkup(React.createElement(Flow, { ...props, view: 'extracted' }));
-    assert.match(extracted, /안내문 일정 12:30~14:50/); assert.doesNotMatch(extracted, /<details|시간은 직접 수정할 수 있어요/);
+    assert.doesNotMatch(extracted, /안내문 일정 12:30~14:50/); assert.match(extracted, /오후 12:30/); assert.doesNotMatch(extracted, /<details|시간은 직접 수정할 수 있어요/);
     const sheet = renderToStaticMarkup(React.createElement(Flow, props));
     assert.match(sheet, /이 내용으로 예약할까요/); assert.match(sheet, /승인하고 예약하기/); assert.match(sheet, /이용 전 취소 가능/); assert.match(sheet, /신분증 · 노트북/); assert.doesNotMatch(sheet, /<details|시설 기본정보는 DB|가상|예약 조건이 확인된 공간/);
     const reservations = renderToStaticMarkup(React.createElement(Account, { view: 'reservations', loggedIn: true, profile: { name: '테스트', birthDate: '2000-01-01', region: '경기도 화성시' }, tasks: [{ ...task, state: 'CONFIRMED', bookingReference: 'TEST-1234' }, { ...task, id: 'pending', state: 'PENDING' }] }));

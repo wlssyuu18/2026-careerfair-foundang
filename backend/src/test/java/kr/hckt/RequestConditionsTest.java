@@ -23,6 +23,10 @@ class RequestConditionsTest {
             assertEquals(original.budget(), result.budget());
         }
     }
+    @Test void onlineExamSuggestsDevicesWhenNoneAreExtracted() {
+        var c = new Task.Conditions("온라인 시험", "2099-11-27", "12:30", "14:50", "서울", 10000, List.of(), List.of(), List.of());
+        assertEquals(List.of("노트북", "웹캠"), RequestConditions.reservation(c).equipment());
+    }
     @Test void missingOrInvalidTimesAreLeftForCorrection() {
         for (var times : List.of(List.of("12:30", ""), List.of("", "14:20"), List.of("bad", "14:20"), List.of("14:20", "12:30"))) {
             var original = schedule(times.get(0), times.get(1));
