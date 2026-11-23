@@ -54,7 +54,7 @@ test('reservations switch between upcoming and past while My only shows account 
     const { default: Account } = await server.ssrLoadModule('/src/pages/Account.tsx');
     const { emptyProfile } = await server.ssrLoadModule('/src/pages/Start.tsx');
     const profile = { ...emptyProfile, name: '테스트', email: 'test@example.com', birthDate: '2000-01-01', region: '부산광역시 사하구' };
-    const task = { id: 'next', state: 'CONFIRMED', approval: { name: '다가올 공간' }, conditions: { date: '2099-11-27', start: '13:30', end: '15:30' }, events: [] };
+    const task = { id: 'next', state: 'CONFIRMED', approval: { name: '다가올 공간' }, conditions: { date: '2099-11-27', start: '13:30', end: '15:30', purpose: '화상면접', notes: [] }, candidates: [], events: [] };
     const tasks = [task, { ...task, id: 'old', approval: { name: '지난 공간' }, conditions: { ...task.conditions, date: '2020-11-20' } }, { ...task, id: 'cancelled', state: 'STOPPED', bookingReference: 'DEMO-1', approval: { name: '취소한 공간' } }, { ...task, id: 'draft', state: 'STOPPED', approval: { name: '중단한 분석' } }];
     const states = []; let cursor = 0;
     React.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE.H = {

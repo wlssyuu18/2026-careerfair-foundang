@@ -54,6 +54,7 @@ class Accounts {
         db.sql("UPDATE app_user SET failed_logins=0,locked_until=NULL WHERE id=?").param(id).update();
         return get(id);
     }
+    void delete(UUID id) { db.sql("DELETE FROM app_user WHERE id=?").param(id).update(); }
     Profile get(UUID id) {
         return db.sql("SELECT * FROM app_user WHERE id=?").param(id).query((r, n) -> new Profile(id, r.getString("email"), r.getString("name"), r.getDate("birth_date").toLocalDate().toString(), r.getString("region"), r.getInt("budget"), json.readValue(r.getString("equipment"), json.getTypeFactory().constructCollectionType(List.class, String.class)), r.getBoolean("notifications")))
             .optional().orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));

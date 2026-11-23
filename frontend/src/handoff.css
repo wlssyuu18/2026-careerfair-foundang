@@ -115,3 +115,28 @@ input,textarea { border-color:#e2eae5; border-radius:16px; }
 .approval-toast { position:fixed; top:35px; left:50%; transform:translateX(-50%); width:min(350px,90vw); z-index:60; border:0; border-radius:18px; background:#14251b; color:white; box-shadow:0 6px 24px #14251b30; padding:16px; display:flex; align-items:center; gap:8px; font-size:12px; text-align:left; }
 @media(min-width:500px) { .app-layout { padding:24px 0; }.app { border-radius:38px; overflow:clip; box-shadow:0 12px 70px #17332310; }.bottom-nav { bottom:30px; } }
 @media(max-width:360px) { .home-title { font-size:24px; }.hero-document { right:-15px; }.home-quick button { font-size:9px; }.home-greeting>.tag { font-size:8px; margin-right:40px; } }
+
+/* 예약 내역과 계정 확인 화면 */
+.account-page .booking-card { padding:16px; border:1px solid #e8eeea; border-radius:22px; margin-bottom:12px; }
+.account-page .booking-card h3 { font-size:14px; margin:6px 0; }
+.account-page .booking-card .candidate-meta { font-size:11px; }
+.account-page .booking-card.waiting { min-height:0; }
+.account-page .booking-card .booking-badges { margin-bottom:4px; }
+.account-page .timeline { padding:12px; margin:12px 0 10px; }
+.account-page .booking-actions { gap:5px; margin-top:8px; }
+.account-page .booking-actions>button,.account-page .booking-actions>a { font-size:10px; padding:9px 3px; border-radius:9px; }
+.withdraw-link { display:block; margin:18px auto 0; padding:4px; border:0; background:transparent; color:#a0aaa4; font-size:11px; text-decoration:underline; }
+.logout-dialog { text-align:center; }
+.logout-symbol { display:grid; place-items:center; width:56px; height:56px; margin:0 auto 18px; border-radius:17px; background:#fff0f0; color:#ef6868; }
+.logout-dialog h2 { font-size:19px; }
+.logout-dialog p { color:#8d9892; font-size:12px; line-height:1.7; margin-bottom:16px; }
+.logout-dialog .notice { text-align:left; font-size:11px; margin:16px 0; }
+.logout-actions { display:flex; gap:8px; margin-top:20px; }
+.logout-actions .button { flex:1; min-height:44px; padding:10px; border-radius:12px; }
+.logout-actions .button:not(.secondary) { background:#14251b; }
+.bottom-nav { isolation:isolate; }
+.bottom-nav .nav-indicator { position:absolute; top:6px; left:calc(8px + var(--nav-index, 0) * 90px); width:52px; height:52px; border-radius:50%; background:#20d420; transition:left .3s cubic-bezier(.22,1,.36,1); z-index:-1; }
+.bottom-nav button { transition:color .25s ease, transform .25s ease; }
+.bottom-nav button[aria-current=page] { background:transparent; }
+.bottom-nav button:active { transform:scale(.92); }
+@media(prefers-reduced-motion:reduce) { .bottom-nav .nav-indicator,.bottom-nav button { transition:none; } }

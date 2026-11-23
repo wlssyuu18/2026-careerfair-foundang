@@ -27,13 +27,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (response.status === 403) csrf = undefined;
     throw new ApiError(body.message || '요청을 처리하지 못했습니다.', response.status);
   }
-  if (path === '/auth/login' || path === '/auth/logout') csrf = undefined;
+  if (path === '/auth/login' || path === '/auth/logout' || (path === '/account' && method === 'DELETE')) csrf = undefined;
   return response.status === 204 ? undefined as T : response.json();
 }
 const post = <T>(path: string, body: unknown = {}) => request<T>(path, { method: 'POST', body: JSON.stringify(body) });
 export const api = {
   spaces: (region: string) => request<Candidate[]>('/spaces?region=' + encodeURIComponent(region)),
   draft: (conditions: Conditions) => post<AgentTask>('/tasks/draft', conditions),
+  withdraw: (password: string) => request<void>('/account', { method: 'DELETE', body: JSON.stringify({ password }) }),
   me: () => request<Profile>('/account'),
   signup: (body: unknown) => post<Profile>('/auth/signup', body),
   login: (email: string, password: string) => post<Profile>('/auth/login', { email, password }),
