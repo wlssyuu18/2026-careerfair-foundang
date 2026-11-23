@@ -10,12 +10,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = init.method ?? 'GET';
   if (!['GET', 'HEAD'].includes(method) && !csrf) {
     let response: Response;
-    try { response = await fetch('/api/auth/csrf', { credentials: 'same-origin' }); }
+    try { response = await fetch('/api/auth/csrf', { credentials: 'same-origin', headers: { 'ngrok-skip-browser-warning': 'true' } }); }
     catch { throw new ApiError('서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.', 0); }
     if (!response.ok) throw new ApiError('서버에 연결할 수 없습니다.', response.status);
     csrf = await response.json();
   }
   const headers = new Headers(init.headers);
+  headers.set('ngrok-skip-browser-warning', 'true');
   if (init.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json');
   if (csrf && !['GET', 'HEAD'].includes(method)) headers.set(csrf.headerName, csrf.token);
   let response: Response;

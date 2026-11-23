@@ -10,6 +10,7 @@ test('인증 후 CSRF를 갱신하고, 실패한 승인 요청은 자동 재전�
     const path = String(input); const method = init?.method ?? 'GET';
     calls.push({ path, method, token: new Headers(init?.headers).get('X-CSRF-TOKEN') });
     assert.equal(init?.credentials, 'same-origin');
+    assert.equal(new Headers(init?.headers).get('ngrok-skip-browser-warning'), 'true');
     if (path === '/api/auth/csrf') return Response.json({ headerName: 'X-CSRF-TOKEN', token: `token-${++token}` });
     if (path === '/api/auth/logout') return new Response(null, { status: 204 });
     if (path.includes('/approve') && rejectApproval) { rejectApproval = false; return Response.json({ message: '승인 토큰 확인 필요' }, { status: 403 }); }
