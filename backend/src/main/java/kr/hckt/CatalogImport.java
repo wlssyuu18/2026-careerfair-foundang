@@ -95,10 +95,8 @@ public final class CatalogImport {
         try (var db = DriverManager.getConnection(config.getProperty("DB_URL", "jdbc:postgresql://127.0.0.1:5432/hckt"), config.getProperty("DB_USER", "hckt"), config.getProperty("DB_PASSWORD"))) {
             db.setAutoCommit(false);
             try {
-                try (var input = CatalogImport.class.getResourceAsStream("/schema.sql")) {
-                    if (input == null) throw new IllegalStateException("schema.sql missing");
-                    execute(db, new String(input.readAllBytes(), StandardCharsets.UTF_8));
-                }
+                new org.springframework.jdbc.datasource.init.ResourceDatabasePopulator(
+                    new org.springframework.core.io.ClassPathResource("schema.sql")).populate(db);
                 int count = apply(db, data);
                 db.commit();
                 System.out.println("Imported " + count + " venue rooms; no availability data written.");

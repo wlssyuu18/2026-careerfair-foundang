@@ -101,7 +101,7 @@ Copy-Item .env.example .env
 docker compose up -d db
 ```
 
-DB 데이터는 Docker named volume `hckt_postgres-data`에 저장됩니다. `docker compose down -v`는 저장 데이터를 삭제합니다.
+DB 데이터는 Docker named volume `<Compose 프로젝트명>_postgres-data`에 저장됩니다. `docker compose down -v`는 저장 데이터를 삭제합니다.
 
 서울시 시설 정보를 수집하려면 루트 `.env`에 `SEOUL_OPENAPI_KEY`를 설정합니다.
 
@@ -132,6 +132,54 @@ npm run dev
 
 - 프론트엔드: `http://127.0.0.1:5173`
 - 백엔드: `http://127.0.0.1:8080`
+
+### macOS 배포 서버
+
+기존 PostgreSQL과 충돌하지 않도록 이 Mac의 배포 DB는 `55432` 포트를 사용합니다. 루트 `.env`에 다음 값을 설정합니다.
+
+```properties
+DB_PORT=55432
+DB_URL=jdbc:postgresql://127.0.0.1:55432/hckt
+COOKIE_SECURE=true
+```
+
+`COOKIE_SECURE=true`는 HTTPS 배포용입니다. 로컬 HTTP에서 로그인할 때는 `false`로 설정하고 백엔드를 다시 시작합니다.
+
+```sh
+docker compose up -d db
+launchctl kickstart "gui/$(id -u)/kr.foundang.ollama"
+./tmp/ollama/ollama pull qwen3.5:4b
+cd backend
+bash gradlew importCatalog
+HCKT_TEST_DB=true bash gradlew test bootJar
+cd ../frontend
+npm ci
+npm test
+npm run build
+```
+
+이 Mac은 Ollama 공식 macOS 배포본을 `tmp/ollama`에 설치하고 `~/Library/LaunchAgents/kr.foundang.ollama.plist`로 실행합니다. Homebrew 0.40.17 배포본은 JSON 응답에 필요한 라이브러리가 빠져 있어 사용하지 않습니다. Ollama 로그는 `tmp/ollama.log`와 `tmp/ollama.error.log`입니다.
+
+백엔드는 `~/Library/LaunchAgents/kr.foundang.backend.plist`에 등록되어 로그인 시 자동 실행되고, 종료되면 다시 시작합니다. 실행 파일은 `tmp/foundang.jar`, 로그는 `tmp/backend.log`와 `tmp/backend.error.log`입니다. 빌드 결과와 실행 파일을 분리하므로 새 빌드는 자동 반영되지 않습니다. 업데이트할 때 프로젝트 루트에서 서비스를 중지하고 JAR를 교체합니다.
+
+```sh
+launchctl bootout "gui/$(id -u)/kr.foundang.backend"
+cp backend/build/libs/hckt-0.1.0.jar tmp/foundang.jar
+launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/kr.foundang.backend.plist"
+```
+
+외부 공개에는 Vercel 로그인과 ngrok 인증이 필요합니다.
+
+```sh
+ngrok config add-authtoken <발급받은 토큰>
+ngrok http 8080
+cd frontend
+npx --yes vercel login
+```
+
+ngrok의 HTTPS 주소가 발급되면 `frontend/vercel.json`에 `/api/:path*`를 해당 주소의 `/api/:path*`로 전달하는 rewrite를 설정하고 `frontend`에서 `npx --yes vercel --prod`로 배포합니다. [Vercel 외부 API 프록시 설정](https://vercel.com/docs/routing/rewrites)을 따릅니다.
+
+이 구성은 Mac이 켜져 있고 잠들지 않으며, 사용자 로그인·Docker Desktop·Ollama·백엔드·ngrok이 실행 중이어야 동작합니다.
 
 ## 팀원
 
