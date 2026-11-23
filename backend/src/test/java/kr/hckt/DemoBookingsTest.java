@@ -43,6 +43,8 @@ class DemoBookingsTest {
                 assertFalse(task.candidates.isEmpty());
                 assertTrue(task.candidates.stream().allMatch(c -> c.price() != null && c.url().startsWith("https://example.com/spaces/")));
                 assertTrue(task.candidates.stream().allMatch(c -> "READY".equals(task.bookingChecks.get(c.id()).status())));
+                var needsLaptop = new Task.Conditions("온라인 시험", conditions.date(), conditions.start(), conditions.end(), conditions.region(), 10000, List.of("노트북", "웹캠"), List.of(), List.of());
+                assertFalse(new CatalogSearch(db).findBookable(needsLaptop).isEmpty());
                 String room = task.candidates.getFirst().id(); demo.select(user, task, room);
                 assertThrows(RuntimeException.class, () -> demo.approve(user, task, "wrong"));
                 demo.approve(user, task, task.approval.fingerprint());

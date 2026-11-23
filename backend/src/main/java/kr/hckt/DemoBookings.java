@@ -35,8 +35,8 @@ class DemoBookings {
                     int price = List.of(0, 4000, 2000).get(i);
                     db.sql("""
                         INSERT INTO resource(id,kind,sector,category,name,sido,sigungu,address,equipment,facilities,privacy,interview_policy,capacity_people)
-                        VALUES(?,'SPACE',?,'INTERVIEW_ROOM',?,?,?,?,ARRAY['PC','웹캠','마이크','인터넷','모니터','이어폰','삼각대'],ARRAY['독립 공간','방음','콘센트'],'PRIVATE','EXPLICIT',1)
-                        ON CONFLICT(id) DO NOTHING
+                        VALUES(?,'SPACE',?,'INTERVIEW_ROOM',?,?,?,?,ARRAY['노트북','웹캠','마이크','인터넷','모니터','이어폰','삼각대'],ARRAY['독립 공간','방음','콘센트'],'PRIVATE','EXPLICIT',1)
+                        ON CONFLICT(id) DO UPDATE SET equipment=array_replace(resource.equipment,'PC','노트북')
                         """).params(id, i == 1 ? "PRIVATE" : "PUBLIC", name, sido, district, sido + " " + district + " · 가상 주소").update();
                     db.sql("""
                         INSERT INTO resource_listing(id,resource_id,source_code,external_id,source_url,booking_channel,price_amount,price_unit,price_basis,price_quote,eligibility,cancellation,evidence,fetched_at,minimum_people,minimum_minutes,booking_notes)
