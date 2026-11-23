@@ -41,6 +41,8 @@ class DemoBookingsTest {
                 var conditions = new Task.Conditions("화상면접","2099-11-27","13:30","15:30","부산광역시 사하구 다대동",10000,List.of("웹캠","마이크"),List.of(),List.of());
                 var task = demo.draft(user, conditions); demo.search(user, task, conditions);
                 assertFalse(task.candidates.isEmpty());
+                assertTrue(task.candidates.stream().allMatch(c -> c.price() != null && c.url().startsWith("https://example.com/spaces/")));
+                assertTrue(task.candidates.stream().allMatch(c -> "READY".equals(task.bookingChecks.get(c.id()).status())));
                 String room = task.candidates.getFirst().id(); demo.select(user, task, room);
                 assertThrows(RuntimeException.class, () -> demo.approve(user, task, "wrong"));
                 demo.approve(user, task, task.approval.fingerprint());

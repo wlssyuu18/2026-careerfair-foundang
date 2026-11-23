@@ -469,3 +469,7 @@ legend small { margin-left: 4px; font-size: 11px; font-weight: 400; color: #a3a8
 .calendar-grid button[aria-pressed="true"] { background: var(--green); color: #fff; font-weight: 700; }
 .calendar-grid button:disabled { opacity: .3; cursor: default; }
 .calendar-selection { min-height: 24px; text-align: center; color: #119a11; margin: 16px 0; font-weight: 700; }
+
+.modal { overflow: hidden; }
+.modal-content { max-height: calc(100dvh - 88px); overflow-y: auto; scrollbar-width: thin; padding-right: 4px; }
+.approval-sheet .modal-content { max-height: calc(100dvh - 108px); }

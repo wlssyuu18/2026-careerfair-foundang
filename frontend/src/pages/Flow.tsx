@@ -87,16 +87,13 @@ export default function Flow(p: Props & { browse?: () => Promise<void> }) {
     const problem = conditionError(conditions); setError(problem);
     if (!problem) void p.perform(() => p.search(conditions));
   }
-  const candidates = task?.candidates ?? [];
+  const candidates = (task?.candidates ?? []).filter(c => c.price !== null && task?.bookingChecks?.[c.id]?.status === 'READY');
   const visible = candidates.filter(c => category === '전체' || (category === '공공' ? isPublicCandidate(c) : !isPublicCandidate(c)));
   const imageInputs = <><input ref={gallery} className="sr-only" type="file" accept="image/png,image/jpeg" onChange={e => { void chooseFile(e.target.files?.[0]); e.target.value = ''; }}/></>;
   const resultList = <>
     {task?.conditions && <section className="search-summary"><div className="row spread"><strong>검색 조건</strong><button type="button" className="text-link" disabled={active} onClick={() => p.go('extracted')}>수정</button></div><div className="chips small"><span>{dateLabel(task.conditions.date)} {task.conditions.start}–{task.conditions.end}</span><span>{task.conditions.region}</span><span>{budgetLabel(task.conditions.budget)}</span>{task.conditions.equipment.map(item => <span key={item}>{item}</span>)}</div></section>}
     <div className="result-tabs" aria-label="공간 구분">{['전체', '공공', '민간'].map(value => <button key={value} type="button" aria-pressed={category === value} onClick={() => setCategory(value)}>{value} {value === '전체' ? candidates.length : candidates.filter(c => value === '공공' ? isPublicCandidate(c) : !isPublicCandidate(c)).length}</button>)}</div>
-    <div className="results-list">{[{ status: 'READY', title: '예약 조건이 확인된 공간' }, { status: 'EXTERNAL', title: '시설 사이트에서 예약할 공간' }, { status: 'UNKNOWN', title: '추가 확인이 필요한 공간' }].map(group => {
-      const rooms = visible.filter(c => (task?.bookingChecks?.[c.id]?.status || 'UNKNOWN') === group.status);
-      return rooms.length > 0 && <section key={group.status}><h2 className="group-title">{group.title}</h2>{rooms.map(c => <CandidateCard key={c.id} candidate={c} availability={task?.availability?.[c.id]} booking={task?.bookingChecks?.[c.id]} disabled={active || p.busy} recommended={c.id === candidates[0]?.id && group.status === 'READY'} onSelect={() => void p.perform(() => p.select(c.id))}/>)}</section>;
-    })}</div>
+    <div className="results-list">{visible.map(c => <CandidateCard key={c.id} candidate={c} availability={task?.availability?.[c.id]} booking={task?.bookingChecks?.[c.id]} disabled={active || p.busy} recommended={c.id === candidates[0]?.id} onSelect={() => void p.perform(() => p.select(c.id))}/>)}</div>
     {!visible.length && !active && <Notice>확인된 후보가 아직 없어요. 조건을 바꿔 다시 찾아보세요.</Notice>}
   </>;
   return <>{imageInputs}
@@ -104,7 +101,7 @@ export default function Flow(p: Props & { browse?: () => Promise<void> }) {
     <section className={'page flow ' + p.view + '-page'}>
       {fileError && <Notice error>{fileError}</Notice>}
       {p.view === 'home' && <>
-        <div className="home-greeting"><span className="avatar">{p.profile.name?.slice(0, 1) || '당'}</span><div><small>안녕하세요 👋</small><strong>{p.profile.name || '찾았당'}님</strong></div><Tag>가상 예약 체험</Tag></div>
+        <div className="home-greeting"><span className="avatar">{p.profile.name?.slice(0, 1) || '당'}</span><div><small>안녕하세요 👋</small><strong>{p.profile.name || '찾았당'}님</strong></div></div>
         <h1 className="home-title">필요한 공간과 물품은<br/><em>찾았당</em>이 찾아드려요.</h1>
         <section className="home-upload"><Tag><Icon name="spark" size={13}/>AI 자동 인식</Tag><h2>면접 안내문을<br/>올려주세요</h2><p>일정부터 공간 예약까지 한 번에</p>
           <div className="hero-document" aria-hidden="true"><strong>면접 안내</strong><i/><i className="highlight"/><i/><i className="highlight"/><i/></div>
@@ -114,7 +111,7 @@ export default function Flow(p: Props & { browse?: () => Promise<void> }) {
         <div className="home-quick">{['무료 공간만', '오후 예약 가능', '1만 원 이내', 'PC·웹캠 구비'].map(label => <button key={label} type="button" onClick={() => setText(label + ' 내일 오후 2시 화상면접 공간')}>{label}</button>)}</div>
         <div className="nearby-heading"><h2>근처 면접 공간</h2><button className="text-link" type="button" onClick={() => void p.browse?.()}>직접 찾아보기 ›</button></div>
         <div className="nearby-list">{nearby.slice(0,3).map((room, i) => <button type="button" key={room.id} className="nearby-room" onClick={() => void p.browse?.()}><span className={'room-thumb thumb-' + i}><Icon name={i === 0 ? 'monitor' : 'room'} size={23}/></span><span className="room-copy"><strong>{room.name}</strong><small>{room.equipment.slice(0,3).join(' · ')}</small></span><span className="room-cost"><strong>{money(room.price)}</strong><small>{isPublicCandidate(room) ? '공공' : '민간'}</small></span></button>)}{nearbyError && <p className="caption">{nearbyError}</p>}{!nearby.length && !nearbyError && <p className="caption">지역 공간을 찾고 있어요…</p>}</div>
-        <p className="demo-caption">공간·요금·예약은 가상 데이터로 진행돼요.</p>
+
         {p.profile.notifications && upcoming.length > 0 && <button type="button" className="booking-reminder" onClick={() => p.go('reservations')}><Asset id="6fe04" size={18}/><span>다가오는 예약 {upcoming.length}건<strong>{dateLabel(upcoming[0].conditions.date)} {upcoming[0].conditions.start} · {upcoming[0].approval?.name || upcoming[0].conditions.purpose}</strong></span><Asset id="67a56" size={18}/></button>}
         {task && !['CONFIRMED', 'STOPPED'].includes(task.state) && <button className="text-button" type="button" onClick={() => p.go(taskView(task))}>진행 중인 준비 이어보기</button>}
       </>}
@@ -139,10 +136,10 @@ export default function Flow(p: Props & { browse?: () => Promise<void> }) {
       </form>}
       {(p.view === 'results' || p.view === 'approval') && resultList}
       {p.view === 'approval' && task?.approval && <Modal titleId="approval-title" className="approval-sheet" onClose={() => p.go('results')}>
-        <span className="sheet-handle"/><h2 id="approval-title">이 내용으로 예약할까요?</h2><p className="sheet-subtitle">가상 예약이에요. 실제 결제나 업체 신청은 없어요.</p>
+        <span className="sheet-handle"/><h2 id="approval-title">이 내용으로 예약할까요?</h2>
         <dl className="approval-details"><dt>공간</dt><dd>{task.approval.name}</dd><dt>일시</dt><dd>{dateLabel(task.approval.date)} {task.approval.start}–{task.approval.end}</dd><dt>주소</dt><dd>{candidates.find(c => c.id === task.selectedId)?.address || '주소 확인 필요'}</dd><dt>비용</dt><dd className="green-text">{money(task.approval.totalPrice)}</dd><dt>준비물</dt><dd>{[...(candidates.find(c => c.id === task.selectedId)?.eligibility?.includes('신분증') ? ['신분증'] : []), ...task.conditions.ownedEquipment].join(' · ') || '시설 이용 안내 참고'}</dd><dt>취소</dt><dd>{task.approval.cancellation}</dd></dl>
         <p className="approval-check"><Icon name="check" size={17}/>예약 일시·총금액·취소 조건을 확인했어요</p>
-        <div className="notice yellow"><Icon name="shield" size={16}/><span>가상 업체가 5초~2분 안에 승인해요.<br/>승인되면 예약 내역에서 확인할 수 있어요.</span></div>
+        <div className="notice yellow"><Icon name="shield" size={16}/><span>승인되면 예약 내역에서 확인할 수 있어요.</span></div>
         <div className="approval-actions"><Button secondary onClick={() => p.go('results')}>취소</Button><Button disabled={active || p.busy || task.state !== 'APPROVAL_REQUIRED'} onClick={() => void p.perform(p.approve)}>{p.busy || active ? '예약 진행 중…' : '승인하고 예약하기'}</Button></div>
       </Modal>}
     {p.view !== 'analyzing' && p.view !== 'capture' && task && (active || needResponse || ['FAILED', 'HANDOFF', 'AUTH_REQUIRED', 'UNKNOWN', 'STOPPED'].includes(task.state)) && <section className="agent-panel" aria-live="polite">

@@ -31,6 +31,7 @@ export default function Start({ view, go, profile, setProfile, onLogin }: Props)
       if (password !== confirmation) return setError('비밀번호가 일치하지 않습니다.');
       setProfile({ ...profile, name, email }); go('birth'); return;
     }
+    if (view === 'birth' && !profile.region.trim()) return setError('거주 지역을 검색하고 선택해 주세요.');
     if (view === 'birth' && years === null) return setError('올바른 생년월일 8자리를 입력해 주세요.');
     setBusy(true);
     try {
@@ -65,7 +66,7 @@ export default function Start({ view, go, profile, setProfile, onLogin }: Props)
       <Button type="submit">선택 완료</Button><Button secondary type="button" onClick={() => setEditing(null)}>닫기</Button></form></Modal>}
   </section>;
   return <><Top title={view === 'login' ? '로그인' : '회원가입'} back={() => go(view === 'birth' ? 'signup' : 'conditions')} label={view === 'login' ? '다시 만나 반가워요' : `시작하기 ${view === 'birth' ? 3 : 2} / 3`}/><section className="page auth"><div className="mini-mark"><Icon name={view === 'birth' ? 'calendar' : 'user'} size={30}/></div><h1>{view === 'login' ? <>다음 준비도<br/>함께해요.</> : view === 'birth' ? <>생년월일을<br/>알려주세요.</> : <>준비를 이어갈<br/>계정을 만들어요.</>}</h1><p className="lead">{view === 'birth' ? '시설별 연령 조건을 확인하는 데 사용해요.' : '이메일로 로그인하고 예약 계획을 이어가세요.'}</p><form onSubmit={submit}>
-    {view === 'birth' ? <><label>생년월일<input autoFocus inputMode="numeric" value={birthInput(profile.birthDate)} placeholder="YYYY-MM-DD" maxLength={10} onChange={e => setProfile({ ...profile, birthDate: birthInput(e.target.value) })}/></label>{years !== null && <Notice>만 {years}세 · 시설별 자격은 예약 시 확인해요.</Notice>}</> : <>
+    {view === 'birth' ? <><RegionSearch value={profile.region} onChange={region => setProfile({ ...profile, region })}/><label>생년월일<input autoFocus inputMode="numeric" value={birthInput(profile.birthDate)} placeholder="YYYY-MM-DD" maxLength={10} onChange={e => setProfile({ ...profile, birthDate: birthInput(e.target.value) })}/></label>{years !== null && <Notice>만 {years}세 · 시설별 자격은 예약 시 확인해요.</Notice>}</> : <>
       {view === 'signup' && <label>이름<input autoComplete="name" required value={name} maxLength={40} onChange={e => setName(e.target.value)} placeholder="이름"/></label>}
       <label>이메일<input autoComplete="email" type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="hello@example.com" maxLength={254}/></label>
       <label>비밀번호<input autoComplete={view === 'login' ? 'current-password' : 'new-password'} type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder={view === 'login' ? '비밀번호' : '10자 이상, 영문·숫자·특수문자'} maxLength={72}/></label>

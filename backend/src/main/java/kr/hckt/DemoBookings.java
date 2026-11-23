@@ -59,15 +59,16 @@ class DemoBookings {
         Rules.conditions(c);
         task.simulated = true; task.conditions = c; task.approval = null; task.selectedId = null;
         task.candidates.clear(); task.availability.clear(); task.bookingChecks.clear();
-        for (var entry : catalog.find(c)) {
+        for (var entry : catalog.findBookable(c)) {
             var candidate = entry.candidate();
             boolean free = available(candidate.id(), c);
+            if (!free) continue;
             task.candidates.add(candidate);
-            task.availability.put(candidate.id(), new Task.Availability(free ? "AVAILABLE" : "UNAVAILABLE", "가상 예약 DB 조회", Instant.now(), c.date(), c.start(), c.end()));
-            if (free && candidate.price() != null) task.bookingChecks.put(candidate.id(), new Task.BookingCheck("READY", "요청 시간 예약 가능 · 가상 예약", "", candidate.price(), "이용 시작 전 무료 취소"));
+            task.availability.put(candidate.id(), new Task.Availability(free ? "AVAILABLE" : "UNAVAILABLE", "예약 현황 조회", Instant.now(), c.date(), c.start(), c.end()));
+            if (free && candidate.price() != null) task.bookingChecks.put(candidate.id(), new Task.BookingCheck("READY", "요청 시간 예약 가능", "", candidate.price(), "이용 시작 전 무료 취소"));
             else task.bookingChecks.put(candidate.id(), new Task.BookingCheck("UNKNOWN", free ? "요금 미확인 · 다른 공간을 선택해 주세요" : "선택한 시간은 예약 마감이에요", "", null, ""));
         }
-        task.state("CANDIDATES", "가상 예약 가능 시간을 확인했어요."); store.save(user, task); return task;
+        task.state("CANDIDATES", "예약 가능 시간을 확인했어요."); store.save(user, task); return task;
     }
     boolean available(String listing, Task.Conditions c) {
         return db.sql("""
@@ -82,8 +83,8 @@ class DemoBookings {
         if (c.price() == null || !available(id, task.conditions)) throw Accounts.bad("선택한 시간은 마감되었어요. 다른 공간을 선택해 주세요.");
         task.selectedId = id;
         var t = task.conditions;
-        task.approval = new Task.Approval(id, c.name(), "", t.date(), t.start(), t.end(), c.price(), "이용 시작 전 무료 취소", "가상 예약 · 실제 결제 없음", UUID.randomUUID().toString());
-        task.state("APPROVAL_REQUIRED", "가상 예약 내용을 확인해 주세요."); store.save(user, task); return task;
+        task.approval = new Task.Approval(id, c.name(), "", t.date(), t.start(), t.end(), c.price(), "이용 시작 전 무료 취소", "예약 내용 확인", UUID.randomUUID().toString());
+        task.state("APPROVAL_REQUIRED", "예약 내용을 확인해 주세요."); store.save(user, task); return task;
     }
     @Transactional Task approve(UUID user, Task task, String fingerprint) {
         if (!"APPROVAL_REQUIRED".equals(task.state) || task.approval == null || !task.approval.fingerprint().equals(fingerprint) || task.submittedAt != null) throw Accounts.bad("예약 내용을 다시 확인해 주세요.");
@@ -94,13 +95,13 @@ class DemoBookings {
         db.sql("INSERT INTO demo_booking(task_id,listing_id,starts_at,ends_at,approve_at,status) VALUES(?,?,?,?,?,'PENDING')")
             .params(task.id, UUID.fromString(task.selectedId), start(task.conditions), end(task.conditions), OffsetDateTime.now().plusSeconds(ThreadLocalRandom.current().nextInt(5,121))).update();
         task.submittedAt = Instant.now(); task.bookingReference = "DEMO-" + task.id.toString().substring(0,8).toUpperCase(Locale.ROOT);
-        task.state("PENDING", "예약 신청 완료! 가상 업체가 5초~2분 안에 승인해요."); store.save(user, task); return task;
+        task.state("PENDING", "예약 신청이 완료됐어요. 승인되면 예약 내역에서 확인할 수 있어요."); store.save(user, task); return task;
     }
     @Transactional Task cancel(UUID user, Task task) {
         Task saved = store.get(user, task.id);
         if (saved.submittedAt != null && !start(saved.conditions).isAfter(OffsetDateTime.now())) throw Accounts.bad("이미 시작한 예약은 취소할 수 없어요.");
         db.sql("UPDATE demo_booking SET status='CANCELLED' WHERE task_id=?").param(task.id).update();
-        saved.state("STOPPED", "가상 예약을 취소했어요."); store.save(user, saved);
+        saved.state("STOPPED", "예약을 취소했어요."); store.save(user, saved);
         task.state = saved.state; task.message = saved.message; return saved;
     }
     @Scheduled(fixedDelay = 1000) @Transactional void confirmDue() {
@@ -110,8 +111,8 @@ class DemoBookings {
                 UPDATE demo_booking SET status='CONFIRMED' WHERE status='PENDING' AND approve_at<=now() RETURNING task_id
             )
             UPDATE agent_task t SET data=t.data || jsonb_build_object(
-                'state','CONFIRMED','message','가상 업체가 예약을 승인했어요. 이용 시간에 맞춰 방문해 주세요.',
-                'updatedAt',now(),'events',coalesce(t.data->'events','[]'::jsonb) || jsonb_build_array(jsonb_build_object('at',now(),'message','가상 업체가 예약을 승인했어요.'))),updated_at=now()
+                'state','CONFIRMED','message','예약이 승인됐어요. 예약 내역에서 확인해 주세요.',
+                'updatedAt',now(),'events',coalesce(t.data->'events','[]'::jsonb) || jsonb_build_array(jsonb_build_object('at',now(),'message','예약이 승인됐어요.'))),updated_at=now()
             FROM approved a WHERE t.id=a.task_id AND t.data->>'state'='PENDING'
             """).update();
     }
@@ -123,7 +124,7 @@ class DemoBookings {
     }
     List<Task.Candidate> nearby(String region) {
         var c = new Task.Conditions("화상면접", LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(1).toString(), "13:30", "15:30", region, 10000, List.of(), List.of(), List.of());
-        return catalog.find(c).stream().map(CatalogSearch.Entry::candidate).toList();
+        return catalog.findBookable(c).stream().map(CatalogSearch.Entry::candidate).toList();
     }
     static OffsetDateTime end(Task.Conditions c) { return OffsetDateTime.parse(c.date() + "T" + c.end() + ":00+09:00"); }
 }

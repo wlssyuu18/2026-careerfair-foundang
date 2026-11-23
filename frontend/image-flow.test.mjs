@@ -87,16 +87,17 @@ test('booking cards and approval show verified conditions without diagnostic tog
     const { default: Flow } = await server.ssrLoadModule('/src/pages/Flow.tsx');
     const { default: Account } = await server.ssrLoadModule('/src/pages/Account.tsx');
     const candidate = { id: 'room', name: '청년센터 화상면접실', provider: '공공', url: 'https://youthjob.hscity.go.kr/place/place_form.jsp', address: '경기도 화성시', price: 0, equipment: ['웹캠'], eligibility: '신분증 지참', observedAt: '2026-11-22T00:00:00Z' };
-    const external = renderToStaticMarkup(React.createElement(CandidateCard, { candidate: { ...candidate, price: null }, booking: { status: 'EXTERNAL', message: '휴대폰 인증 후 예약', url: candidate.url, totalPrice: null } }));
-    assert.match(external, /요금 미공개/); assert.match(external, /시설 사이트에서 예약하기/); assert.doesNotMatch(external, /<details|조회 근거|이 공간 예약하기/);
+    const card = renderToStaticMarkup(React.createElement(CandidateCard, { candidate: { ...candidate, price: 8000 }, booking: { status: 'READY', totalPrice: 8000 } }));
+    assert.match(card, /8,000원/); assert.match(card, /이 공간 예약하기/);
+    assert.doesNotMatch(card, /예상|미공개|시설 사이트에서|button secondary|disabled/);
     const conditions = { purpose: '화상면접', date: '2099-11-27', start: '12:00', end: '15:00', region: '경기도 화성시', budget: 10000, equipment: ['웹캠'], ownedEquipment: ['노트북'], notes: ['안내문 일정 12:30~14:50. 준비시간을 포함했어요.'] };
     const approval = { candidateId: 'room', name: candidate.name, url: candidate.url, date: conditions.date, start: conditions.start, end: conditions.end, totalPrice: 0, cancellation: '이용 전 취소 가능', fingerprint: 'checked' };
-    const task = { id: 'task', state: 'APPROVAL_REQUIRED', conditions, candidates: [candidate], selectedId: 'room', approval, events: [] };
+    const task = { id: 'task', state: 'APPROVAL_REQUIRED', conditions, candidates: [candidate], bookingChecks: { room: { status: 'READY', totalPrice: 0 } }, selectedId: 'room', approval, events: [] };
     const props = { task, tasks: [], profile: {}, view: 'approval', go() {} };
     const extracted = renderToStaticMarkup(React.createElement(Flow, { ...props, view: 'extracted' }));
     assert.match(extracted, /안내문 일정 12:30~14:50/); assert.doesNotMatch(extracted, /<details|시간은 직접 수정할 수 있어요/);
     const sheet = renderToStaticMarkup(React.createElement(Flow, props));
-    assert.match(sheet, /이 내용으로 예약할까요/); assert.match(sheet, /승인하고 예약하기/); assert.match(sheet, /이용 전 취소 가능/); assert.match(sheet, /신분증 · 노트북/); assert.doesNotMatch(sheet, /<details|시설 기본정보는 DB/);
+    assert.match(sheet, /이 내용으로 예약할까요/); assert.match(sheet, /승인하고 예약하기/); assert.match(sheet, /이용 전 취소 가능/); assert.match(sheet, /신분증 · 노트북/); assert.doesNotMatch(sheet, /<details|시설 기본정보는 DB|가상|예약 조건이 확인된 공간/);
     const reservations = renderToStaticMarkup(React.createElement(Account, { view: 'reservations', loggedIn: true, profile: { name: '테스트', birthDate: '2000-01-01', region: '경기도 화성시' }, tasks: [{ ...task, state: 'CONFIRMED', bookingReference: 'TEST-1234' }, { ...task, id: 'pending', state: 'PENDING' }] }));
     assert.match(reservations, /예약 확정/); assert.match(reservations, /기관 승인 대기/); assert.match(reservations, /TEST-1234/); assert.match(reservations, /무료/);
   } finally { await server.close(); }
